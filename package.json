@@ -1,0 +1,29 @@
+{
+  "name": "gist-ghost-sync",
+  "version": "1.0.0",
+  "description": "Aggregates summaries of multiple GitHub repositories into a single Gist",
+  "main": "scripts/gists/generate-gist-index.ps1",
+  "scripts": {
+    "sync": "pwsh -File scripts/gists/generate-gist-index.ps1 -ReposFile repos.txt -Output gist.md",
+    "test": "pwsh -File test/validate-repos.ps1",
+    "build": "pwsh -File scripts/build-gist.ps1"
+  },
+  "keywords": [
+    "gist",
+    "github",
+    "automation",
+    "repository",
+    "aggregation",
+    "powershell"
+  ],
+  "author": "samw425-glitch",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samw425-glitch/gist-ghost-sync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/samw425-glitch/gist-ghost-sync/issues"
+  },
+  "homepage": "https://github.com/samw425-glitch/gist-ghost-sync#readme"
+}
