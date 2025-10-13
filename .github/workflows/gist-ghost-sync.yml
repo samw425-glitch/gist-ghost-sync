@@ -1,0 +1,29 @@
+name: gist-ghost-sync
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN_GIST }}
+      GIST_ID: ${{ secrets.GIST_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate gist index
+        shell: pwsh
+        run: |
+          ./scripts/gists/generate-gist-index.ps1 -ReposFile ./repos.txt -Output gist.md
+      - name: Ensure gh is available
+        run: gh --version
+      - name: Create or update gist
+        run: |
+          set -e
+          if [ -n "${GIST_ID}" ]; then
+            gh gist edit "$GIST_ID" gist.md -a
+          else
+            gh gist create gist.md -d "Multi-repo index: ${GITHUB_REPOSITORY}" -p
+          fi

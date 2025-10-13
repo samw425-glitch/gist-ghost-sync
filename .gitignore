@@ -1,0 +1,9 @@
+# Ignore local artifacts
+*.log
+*.tmp
+*.DS_Store
+Thumbs.db
+
+# Node/gh caches if present
+node_modules/
+.\#*
