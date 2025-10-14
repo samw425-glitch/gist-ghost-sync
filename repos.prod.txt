@@ -1,0 +1,13 @@
+# PROD repos (default same as dev; edit as needed)
+samw425-glitch/affiliate-marketing-tech
+samw425-glitch/automation-flows
+samw425-glitch/backlinking-engine
+samw425-glitch/blog-writer-advanced
+samw425-glitch/click-tracker
+samw425-glitch/marketing-automation
+samw425-glitch/neural-networks-service
+samw425-glitch/utm-tracker
+samw425-glitch/local-dating-platform
+samw425-glitch/seo-intelligence
+samw425-glitch/specialized-workers
+samw425-glitch/web-hosting-manager

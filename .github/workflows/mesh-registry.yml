@@ -11,25 +11,36 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: [ dev, staging, prod ]
     steps:
       - uses: actions/checkout@v4
       - name: Set up PowerShell
         uses: PowerShell/PowerShell@v1
         with:
           pwsh-version: '7.4.x'
-      - name: Generate mesh registry from repos.txt
+      - name: Generate mesh registry from repos list
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
         run: |
-          ./scripts/gists/generate-mesh-registry.ps1 -ReposFile "${{ github.workspace }}/repos.txt" -Output "mesh.registry.json"
+          $file = "${{ github.workspace }}/repos.${{ matrix.env }}.txt"
+          ./scripts/gists/generate-mesh-registry.ps1 -ReposFile $file -Output "mesh.registry.json"
       - name: Update secret gist with registry
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN_GIST }}
-          MESH_GIST_ID: ${{ secrets.MESH_GIST_ID }}
+          MESH_GIST_ID_DEV: ${{ secrets.MESH_GIST_ID_DEV }}
+          MESH_GIST_ID_STAGING: ${{ secrets.MESH_GIST_ID_STAGING }}
+          MESH_GIST_ID_PROD: ${{ secrets.MESH_GIST_ID_PROD }}
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           CONTENT=$(jq -Rs . < mesh.registry.json)
           echo "{\"files\": {\"mesh.json\": {\"content\": $CONTENT}}}" > payload.json
-          gh api -X PATCH "gists/${MESH_GIST_ID}" --input payload.json
+          case "${{ matrix.env }}" in
+            dev) GID=$MESH_GIST_ID_DEV;;
+            staging) GID=$MESH_GIST_ID_STAGING;;
+            prod) GID=$MESH_GIST_ID_PROD;;
+          esac
+          gh api -X PATCH "gists/$GID" --input payload.json
