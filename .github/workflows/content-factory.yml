@@ -31,9 +31,16 @@ jobs:
         run: |
           $file = "${{ github.workspace }}/repos.${{ matrix.env }}.txt"
           ./scripts/factory/collect-content.ps1 -ReposFile $file -OutputDir "out/${{ matrix.env }}" -MaxSizeMB 50
+      - name: Create Gist modules (optional)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN_GIST }}
+        shell: pwsh
+        run: |
+          $file = "${{ github.workspace }}/repos.${{ matrix.env }}.txt"
+          ./scripts/factory/create-gist-modules.ps1 -ReposFile $file -OutputFile "out/${{ matrix.env }}/modules.json"
       - name: Build SQLite catalog
         run: |
-          python ./scripts/factory/db_ingest.py "out/${{ matrix.env }}/files.json" "out/${{ matrix.env }}/content-${{ matrix.env }}.sqlite"
+          python ./scripts/factory/db_ingest.py "out/${{ matrix.env }}/files.json" "out/${{ matrix.env }}/content-${{ matrix.env }}.sqlite" --modules "out/${{ matrix.env }}/modules.json"
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

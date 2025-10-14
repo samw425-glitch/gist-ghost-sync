@@ -27,7 +27,26 @@ CREATE TABLE IF NOT EXISTS assets (
   url TEXT,
   stored_path TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  metadata TEXT,
   FOREIGN KEY(repo_id) REFERENCES repos(id)
+);
+CREATE TABLE IF NOT EXISTS modules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo_id INTEGER NOT NULL,
+  module_name TEXT NOT NULL,
+  gist_id TEXT NOT NULL,
+  gist_url TEXT NOT NULL,
+  visibility TEXT,
+  description TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(repo_id) REFERENCES repos(id)
+);
+CREATE TABLE IF NOT EXISTS module_files (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  module_id INTEGER NOT NULL,
+  filename TEXT NOT NULL,
+  raw_url TEXT NOT NULL,
+  FOREIGN KEY(module_id) REFERENCES modules(id)
 );
 """
 
@@ -48,8 +67,8 @@ def upsert_repo(conn, owner, name, default_branch):
 def insert_asset(conn, repo_id, item):
     conn.execute(
         """
-        INSERT INTO assets(repo_id,path,rel_path,content_type,size,sha,ref,url,stored_path)
-        VALUES(?,?,?,?,?,?,?,?,?)
+        INSERT INTO assets(repo_id,path,rel_path,content_type,size,sha,ref,url,stored_path,metadata)
+        VALUES(?,?,?,?,?,?,?,?,?,?)
         """,
         (
             repo_id,
@@ -61,13 +80,39 @@ def insert_asset(conn, repo_id, item):
             item.get("branch"),
             item.get("url"),
             item.get("rel_path"),
+            json.dumps(item.get("metadata")) if item.get("metadata") is not None else None,
         ),
     )
+
+def insert_module(conn, repo_id, mod):
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO modules(repo_id,module_name,gist_id,gist_url,visibility,description)
+        VALUES(?,?,?,?,?,?)
+        """,
+        (
+            repo_id,
+            mod.get("module"),
+            mod.get("gist_id"),
+            mod.get("gist_url"),
+            mod.get("visibility"),
+            mod.get("description"),
+        ),
+    )
+    mid = cur.lastrowid
+    for f in mod.get("files", []):
+        conn.execute(
+            "INSERT INTO module_files(module_id,filename,raw_url) VALUES(?,?,?)",
+            (mid, f.get("filename"), f.get("raw_url")),
+        )
+
 
 def main():
     ap = argparse.ArgumentParser(description="Ingest collected content into SQLite")
     ap.add_argument("catalog", help="Path to files.json produced by collect-content.ps1")
     ap.add_argument("out_db", help="Path to output SQLite DB file")
+    ap.add_argument("--modules", help="Optional modules.json produced by create-gist-modules.ps1")
     args = ap.parse_args()
 
     catalog_path = Path(args.catalog)
@@ -92,6 +137,22 @@ def main():
             repo_cache[key] = repo_id
         repo_id = repo_cache[key]
         insert_asset(conn, repo_id, item)
+
+    # Optional modules ingestion
+    if args.modules and Path(args.modules).exists():
+      mods = json.loads(Path(args.modules).read_text(encoding="utf-8"))
+      for mod in mods:
+        owner_repo = mod.get("ownerRepo") or mod.get("owner_repo") or ""
+        if "/" in owner_repo:
+            owner, name = owner_repo.split("/", 1)
+        else:
+            owner, name = "", owner_repo
+        key = (owner, name)
+        if key not in repo_cache:
+            repo_id = upsert_repo(conn, owner, name, mod.get("branch"))
+            repo_cache[key] = repo_id
+        repo_id = repo_cache[key]
+        insert_module(conn, repo_id, mod)
 
     conn.commit()
     conn.close()

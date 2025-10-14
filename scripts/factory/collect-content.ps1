@@ -21,7 +21,28 @@ function Get-Tree($ownerRepo, $branch) {
   return $tree.tree
 }
 
-function Match-Include($path) {
+function Match-Include($path, $manifest) {
+  # If manifest present, use its include/extensions logic
+  if ($manifest) {
+    $includes = @()
+    if ($manifest.defaults -and $manifest.defaults.include) { $includes += $manifest.defaults.include }
+    if ($manifest.include) { $includes += $manifest.include }
+    if ($includes.Count -gt 0) {
+      foreach ($inc in $includes) {
+        $p = [string]$inc
+        $p = $p -replace '\.','\.'
+        $p = $p -replace '\*\*','*'
+        $p = $p -replace '\*','.*'
+        if ($path -match "^$p$") { return $true }
+        if ($path -like $inc) { return $true }
+      }
+    }
+    $exts = @('*.png','*.jpg','*.jpeg','*.gif','*.svg','*.webp','*.mp4','*.webm','*.pdf','*.md','*.txt','*.json','*.csv')
+    if ($manifest.defaults -and $manifest.defaults.extensions) { $exts = @() + $manifest.defaults.extensions | ForEach-Object { "*.$_" } }
+    foreach ($e in $exts) { if ($path -like $e) { return $true } }
+    return $false
+  }
+  # Default heuristics
   $exts = @('*.png','*.jpg','*.jpeg','*.gif','*.svg','*.webp','*.mp4','*.webm','*.pdf','*.md','*.txt','*.json','*.csv')
   foreach ($e in $exts) { if ($path -like $e) { return $true } }
   if ($path -like 'public/*' -or $path -like 'public/*/*' -or $path -like 'docs/*' -or $path -like 'assets/*' -or $path -like 'static/*') { return $true }
@@ -48,10 +69,28 @@ foreach ($ownerRepo in $repos) {
     continue
   }
 
+  # Load optional publish manifest
+  $manifest = $null
+  try {
+    $manApi = "repos/$ownerRepo/contents/.factory/publish.manifest.json?ref=$branch"
+    $raw = gh api $manApi 2>$null
+    if ($LASTEXITCODE -eq 0 -and $raw) {
+      $o = $raw | ConvertFrom-Json
+      if ($o.content) {
+        $decoded = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(($o.content -replace "\n","")))
+        $manifest = $decoded | ConvertFrom-Json
+        Write-Host "  • Using publish.manifest.json for $ownerRepo" -ForegroundColor Green
+        if ($manifest.defaults -and $manifest.defaults.maxSizeMB) {
+          $maxBytes = [int]$manifest.defaults.maxSizeMB * 1MB
+        }
+      }
+    }
+  } catch { }
+
   foreach ($node in $tree) {
     if ($node.type -ne 'blob') { continue }
     $path = [string]$node.path
-    if (-not (Match-Include $path)) { continue }
+    if (-not (Match-Include $path, $manifest)) { continue }
     if ($node.size -and [int64]$node.size -gt $maxBytes) { continue }
 
     $safeRepo = $ownerRepo -replace '/','__'
@@ -78,6 +117,8 @@ foreach ($ownerRepo in $repos) {
       sha       = $node.sha
       content_type = ""
     }
+    # Apply global metadata from manifest
+    if ($manifest -and $manifest.metadata) { $item.metadata = $manifest.metadata }
     $catalog += $item
   }
 }
