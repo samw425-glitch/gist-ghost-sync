@@ -1,10 +1,12 @@
 name: Mesh Registry
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '15 * * * *'  # hourly at :15
   push:
     paths:
       - 'scripts/gists/generate-mesh-registry.ps1'
-      - '**/hydra.manifest.json'
+      - 'repos.txt'
 
 jobs:
   build:
@@ -15,10 +17,13 @@ jobs:
         uses: PowerShell/PowerShell@v1
         with:
           pwsh-version: '7.4.x'
-      - name: Generate mesh registry
+      - name: Generate mesh registry from repos.txt
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
         run: |
-          ./scripts/gists/generate-mesh-registry.ps1 -RootPath "${{ github.workspace }}" -Output "mesh.registry.json"
+          ./scripts/gists/generate-mesh-registry.ps1 -ReposFile "${{ github.workspace }}/repos.txt" -Output "mesh.registry.json"
       - name: Update secret gist with registry
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN_GIST }}
