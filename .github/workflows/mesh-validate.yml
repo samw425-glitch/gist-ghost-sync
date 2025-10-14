@@ -1,0 +1,37 @@
+name: Mesh Validation
+on:
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: [ dev, staging, prod ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PowerShell
+        uses: PowerShell/PowerShell@v1
+        with:
+          pwsh-version: '7.4.x'
+      - name: Validate mesh for ${{ matrix.env }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN_GIST }}
+          MESH_GIST_ID_DEV: ${{ secrets.MESH_GIST_ID_DEV }}
+          MESH_GIST_ID_STAGING: ${{ secrets.MESH_GIST_ID_STAGING }}
+          MESH_GIST_ID_PROD: ${{ secrets.MESH_GIST_ID_PROD }}
+        shell: pwsh
+        run: |
+          switch ("${{ matrix.env }}") {
+            "dev" { $id = $env:MESH_GIST_ID_DEV }
+            "staging" { $id = $env:MESH_GIST_ID_STAGING }
+            "prod" { $id = $env:MESH_GIST_ID_PROD }
+          }
+          ./scripts/gists/validate-mesh.ps1 -EnvName "${{ matrix.env }}" -GistId $id
+      - name: Upload validation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesh-validation-${{ matrix.env }}
+          path: mesh-validation-${{ matrix.env }}.md
