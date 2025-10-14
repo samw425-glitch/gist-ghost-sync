@@ -1,8 +1,10 @@
 name: Content Factory
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [ content_update ]
   schedule:
-    - cron: '20 2 * * *'
+    - cron: '*/5 * * * *'
 
 jobs:
   collect:
