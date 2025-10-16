@@ -15,8 +15,8 @@ jobs:
     permissions:
       contents: read
     env:
-      GH_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
-      GITHUB_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       S3_BUCKET: ${{ secrets.S3_BUCKET }}
